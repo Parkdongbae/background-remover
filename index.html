@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>배경제거 — 이미지 배경 한 번에 제거</title>
+<style>
+  :root{
+    --blue:#0d99ff;
+    --blue-hover:#0b87e0;
+    --text:#1b2b3a;
+    --muted:#64748b;
+    --border:#e2e8f0;
+    --card-radius:16px;
+    --btn-radius:12px;
+    --checker: repeating-conic-gradient(#e9ecef 0% 25%, #ffffff 0% 50%) 0 0 / 20px 20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none !important}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,'Segoe UI','Noto Sans KR',sans-serif;
+    color:var(--text);
+    background:#fff;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  button{font-family:inherit}
+
+  /* Header */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background:#fff;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 24px;
+    box-shadow:0 1px 0 var(--border);
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:-0.3px}
+  .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:var(--blue);color:#fff;
+    display:grid;place-items:center;font-size:15px;line-height:1;
+  }
+  .badge{
+    font-size:12.5px;color:var(--muted);
+    background:#f1f5f9;border:1px solid var(--border);
+    padding:5px 12px;border-radius:999px;white-space:nowrap;
+  }
+
+  /* Hero */
+  .hero{background:#eef6fc;padding:56px 16px 64px;text-align:center;flex:1}
+  h1{font-size:clamp(26px,4.5vw,38px);font-weight:800;letter-spacing:-0.5px}
+  .sub{margin:14px auto 0;max-width:580px;color:var(--muted);font-size:15.5px;line-height:1.65}
+  .stage{margin:32px auto 0;width:100%;max-width:640px}
+  .state{display:none}
+  .state.active{display:block;animation:fadeUp .25s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .card{
+    background:#fff;border-radius:var(--card-radius);
+    box-shadow:0 10px 30px rgba(27,43,58,.08),0 2px 8px rgba(27,43,58,.05);
+    padding:40px 32px;
+  }
+
+  /* Buttons */
+  .btn{
+    border:none;cursor:pointer;font-size:15.5px;font-weight:600;
+    border-radius:var(--btn-radius);padding:14px 28px;
+    transition:background .15s ease,box-shadow .15s ease,transform .05s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--blue);color:#fff}
+  .btn.primary:hover{background:var(--blue-hover)}
+  .btn.secondary{background:#fff;color:var(--text);border:1px solid #cbd5e1}
+  .btn.secondary:hover{background:#f1f5f9}
+
+  /* Upload state */
+  .upload-card{
+    display:flex;flex-direction:column;align-items:center;gap:16px;
+    border:2px dashed transparent;
+    transition:border-color .15s ease,background .15s ease;
+  }
+  .upload-card.dragover{border-color:var(--blue);background:#f5fbff}
+  .hint{color:var(--muted);font-size:13.5px}
+  .quality{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
+  .quality-label{font-size:13px;font-weight:600;color:var(--muted)}
+  .quality .chip{padding:6px 14px}
+  .note{color:#94a3b8;font-size:12.5px;line-height:1.5;min-height:1em}
+  .upload-note{font-weight:500}
+
+  /* Processing state */
+  .processing-card{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+  .spinner{
+    width:44px;height:44px;border-radius:50%;
+    border:4px solid #dbeafe;border-top-color:var(--blue);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .processing-card h2{font-size:20px;font-weight:700}
+  .file-hint{
+    color:var(--muted);font-size:13px;max-width:100%;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .progress-wrap{width:100%;max-width:420px;display:flex;flex-direction:column;gap:8px}
+  .progress-label{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+  .bar{height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+  .fill{height:100%;width:0%;background:var(--blue);border-radius:999px;transition:width .2s ease}
+  .bar.indeterminate{position:relative}
+  .bar.indeterminate .fill{width:40%;transition:none;animation:slide 1.2s ease-in-out infinite}
+  @keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
+  .run-note{margin-top:4px}
+
+  /* Result state */
+  .result-card{padding:24px;display:flex;flex-direction:column;gap:20px}
+  .compare-wrap{display:flex;justify-content:center}
+  .compare{
+    position:relative;display:inline-block;max-width:100%;
+    border-radius:12px;overflow:hidden;
+    background:#f8fafc;box-shadow:0 0 0 1px var(--border);
+  }
+  .cmp-base{display:block;max-width:100%;max-height:60vh}
+  .cmp-result{position:absolute;inset:0;background:var(--checker);clip-path:inset(0 0 0 50%)}
+  .cmp-result img{display:block;width:100%;height:100%;object-fit:contain}
+  .divider{position:absolute;top:0;bottom:0;left:50%;width:0;pointer-events:none}
+  .divider::before{
+    content:"";position:absolute;top:0;bottom:0;left:-1.5px;width:3px;
+    background:#fff;
+    box-shadow:0 0 0 1px rgba(27,43,58,.15),0 0 8px rgba(27,43,58,.25);
+  }
+  .grip{
+    position:absolute;top:50%;left:0;transform:translate(-50%,-50%);
+    width:34px;height:34px;border-radius:50%;
+    background:#fff;color:var(--text);
+    display:grid;place-items:center;font-size:15px;
+    box-shadow:0 2px 8px rgba(27,43,58,.3);
+  }
+  .tag{
+    position:absolute;top:10px;
+    font-size:11.5px;font-weight:600;color:var(--muted);
+    background:rgba(255,255,255,.92);
+    padding:3px 10px;border-radius:999px;
+    box-shadow:0 1px 4px rgba(27,43,58,.15);
+    pointer-events:none;
+  }
+  .tag-left{left:10px}
+  .tag-right{right:10px}
+  .compare input[type=range]{
+    position:absolute;inset:0;width:100%;height:100%;
+    opacity:0;cursor:ew-resize;margin:0;
+  }
+
+  .chips{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .chips-label{font-size:13px;font-weight:600;color:var(--muted)}
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:7px 14px 7px 8px;border-radius:999px;
+    border:1px solid var(--border);background:#fff;
+    cursor:pointer;font-size:13px;font-weight:500;color:var(--text);
+    transition:border-color .15s ease,background .15s ease,box-shadow .15s ease;
+  }
+  .chip:hover{background:#f1f5f9}
+  .chip.active{border-color:var(--blue);background:#eaf6ff;box-shadow:0 0 0 1px var(--blue)}
+  .swatch{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(27,43,58,.12);flex:none}
+  .swatch.checker-mini{background:repeating-conic-gradient(#e9ecef 0% 25%, #ffffff 0% 50%) 0 0 / 8px 8px}
+
+  .preview-wrap{display:flex;justify-content:center}
+  .preview{
+    display:inline-flex;max-width:100%;
+    background:var(--checker);border-radius:12px;overflow:hidden;
+    box-shadow:0 0 0 1px var(--border);
+  }
+  .preview img,.preview canvas{display:block;max-width:100%;max-height:60vh;object-fit:contain}
+
+  .actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn.small{padding:9px 16px;font-size:13.5px;border-radius:10px}
+
+  /* Edit mode */
+  .edit-area{display:flex;flex-direction:column;gap:14px;align-items:center}
+  .edit-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center}
+  .tool{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:8px 16px;border-radius:999px;
+    border:1px solid var(--border);background:#fff;
+    cursor:pointer;font-size:13px;font-weight:600;color:var(--text);
+    transition:border-color .15s ease,background .15s ease,box-shadow .15s ease;
+  }
+  .tool:hover{background:#f1f5f9}
+  .tool.active{border-color:var(--blue);background:#eaf6ff;box-shadow:0 0 0 1px var(--blue)}
+  .tool-ic{width:14px;height:14px;border-radius:4px;flex:none;border:1.5px solid currentColor;position:relative}
+  .tool-ic.erase::after{content:"";position:absolute;inset:2px;background:repeating-linear-gradient(45deg,currentColor 0 2px,transparent 2px 5px);opacity:.7}
+  .tool-ic.restore::after{content:"";position:absolute;inset:2px;background:currentColor;opacity:.55}
+  .size-ctrl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .size-ctrl input[type=range]{width:120px;accent-color:var(--blue)}
+  .size-ctrl .size-val{min-width:26px;text-align:right;font-variant-numeric:tabular-nums}
+  .edit-stage{
+    position:relative;display:inline-flex;max-width:100%;
+    background:var(--checker);border-radius:12px;overflow:hidden;
+    box-shadow:0 0 0 1px var(--border);
+  }
+  .edit-canvas{display:block;max-width:100%;max-height:60vh;touch-action:none;cursor:none}
+  .brush-cursor{
+    position:absolute;border:2px solid #fff;border-radius:50%;
+    box-shadow:0 0 0 1px rgba(27,43,58,.65),inset 0 0 0 1px rgba(27,43,58,.65);
+    pointer-events:none;transform:translate(-50%,-50%);
+  }
+  .spinner.small{width:28px;height:28px;border-width:3px}
+  .edit-busy{
+    position:absolute;inset:0;z-index:5;
+    background:rgba(255,255,255,.8);
+    display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;
+    font-size:13px;color:var(--muted);
+  }
+  .edit-hint{color:#94a3b8;font-size:12.5px;text-align:center}
+  .edit-hint.error{color:#dc2626}
+
+  /* Error state */
+  .error-card{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+  .err-icon{
+    width:44px;height:44px;border-radius:50%;
+    background:#fee2e2;color:#dc2626;
+    display:grid;place-items:center;font-size:22px;font-weight:700;
+  }
+  .error-card h2{font-size:18px;font-weight:700}
+
+  /* Footer */
+  footer{padding:18px;text-align:center;color:#94a3b8;font-size:12.5px;background:#fff}
+
+  @media (max-width:640px){
+    .topbar{padding:10px 16px}
+    .brand{font-size:16px}
+    .badge{font-size:11.5px;padding:4px 10px}
+    .hero{padding:40px 0 48px}
+    .stage{max-width:none;padding:0 16px}
+    .card{padding:28px 18px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">✂</span>
+    <span class="wordmark">배경제거</span>
+  </div>
+  <span class="badge">🔒 100% 브라우저 처리</span>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>이미지 속 배경을 한 번에 제거</h1>
+    <p class="sub">클릭 한 번으로 전문가 수준의 배경 제거 — 완전 무료이며, 인터넷 연결 없이 브라우저에서만 처리됩니다.</p>
+
+    <div class="stage">
+
+      <!-- 업로드 -->
+      <section id="state-upload" class="state active">
+        <div class="card upload-card" id="dropCard">
+          <button class="btn primary" id="uploadBtn" type="button">이미지 업로드</button>
+          <input type="file" id="fileInput" accept="image/*" hidden>
+          <p class="hint">또는 이미지를 여기로 끌어다 놓으세요 · Ctrl+V로 붙여넣기</p>
+          <div class="quality" id="qualityRow">
+            <span class="quality-label">품질</span>
+            <button class="chip" type="button" data-model="photoshop" id="psChip" hidden title="설치된 Photoshop으로 처리 (Photoshop 설정에 따라 Adobe 클라우드 사용 가능)">PS 고정밀</button>
+            <button class="chip" type="button" data-model="rmbg" title="RMBG-1.4 모델 — 구조물 보존에 강함 (느림)">초정밀</button>
+            <button class="chip" type="button" data-model="isnet" title="가장 정밀 (느림)">고화질</button>
+            <button class="chip active" type="button" data-model="isnet_fp16" title="기본 권장">표준</button>
+            <button class="chip" type="button" data-model="isnet_quint8" title="빠름 (품질 약간 낮음)">경량</button>
+          </div>
+          <p class="note upload-note" id="uploadNote"></p>
+        </div>
+      </section>
+
+      <!-- 처리 중 -->
+      <section id="state-processing" class="state">
+        <div class="card processing-card">
+          <div class="spinner" aria-hidden="true"></div>
+          <h2>배경을 제거하는 중…</h2>
+          <p class="file-hint" id="fileHint"></p>
+          <div class="progress-wrap" id="dlWrap">
+            <div class="progress-label"><span>모델을 내려받는 중…</span><span id="dlPct">0%</span></div>
+            <div class="bar"><div class="fill" id="dlFill"></div></div>
+          </div>
+          <div class="progress-wrap" id="aiWrap" hidden>
+            <div class="progress-label"><span id="aiLabel">AI가 이미지를 분석하고 있습니다…</span></div>
+            <div class="bar indeterminate"><div class="fill"></div></div>
+          </div>
+          <p class="note run-note">AI 모델이 이 폴더에 포함되어 있어 인터넷 연결 없이 실행됩니다.</p>
+        </div>
+      </section>
+
+      <!-- 결과 -->
+      <section id="state-result" class="state">
+        <div class="card result-card">
+          <div class="compare-wrap" id="compareWrap">
+            <div class="compare" id="compareBox">
+              <img class="cmp-base" id="cmpOriginal" alt="원본 이미지">
+              <div class="cmp-result" id="cmpResultLayer">
+                <img id="cmpResult" alt="배경이 제거된 결과 이미지">
+              </div>
+              <div class="divider" id="cmpDivider"><span class="grip" aria-hidden="true">↔</span></div>
+              <span class="tag tag-left">원본</span>
+              <span class="tag tag-right">결과</span>
+              <input type="range" id="cmpRange" min="0" max="100" value="50" aria-label="원본/결과 비교 슬라이더">
+            </div>
+          </div>
+
+          <div class="chips" id="chipsBox">
+            <span class="chips-label">배경 색상</span>
+            <div class="chip-row" id="chipRow">
+              <button class="chip active" type="button" data-color="transparent"><span class="swatch checker-mini"></span>투명</button>
+              <button class="chip" type="button" data-color="#ffffff"><span class="swatch" style="background:#ffffff"></span>흰색</button>
+              <button class="chip" type="button" data-color="#000000"><span class="swatch" style="background:#000000"></span>검정</button>
+              <button class="chip" type="button" data-color="#4facfe"><span class="swatch" style="background:#4facfe"></span>스카이블루</button>
+              <button class="chip" type="button" data-color="#3ddc84"><span class="swatch" style="background:#3ddc84"></span>그린</button>
+              <button class="chip" type="button" data-color="#ff6b6b"><span class="swatch" style="background:#ff6b6b"></span>코랄</button>
+            </div>
+          </div>
+
+          <div class="preview-wrap" id="previewWrap">
+            <div class="preview" id="previewBox">
+              <img id="previewImg" alt="배경이 제거된 이미지 미리보기">
+              <canvas id="previewCanvas" hidden></canvas>
+            </div>
+          </div>
+
+          <div class="edit-area" id="editArea" hidden>
+            <div class="edit-toolbar">
+              <button class="tool active" id="toolErase" type="button"><span class="tool-ic erase" aria-hidden="true"></span>지우개</button>
+              <button class="tool" id="toolRestore" type="button"><span class="tool-ic restore" aria-hidden="true"></span>복원</button>
+              <div class="size-ctrl">
+                <span>브러시 크기</span>
+                <input type="range" id="brushSize" min="10" max="150" value="40" aria-label="브러시 크기">
+                <span class="size-val" id="brushSizeVal">40</span>
+              </div>
+              <button class="btn secondary small" id="undoBtn" type="button" disabled>실행 취소</button>
+              <button class="btn secondary small" id="resetEditBtn" type="button">초기화</button>
+              <button class="btn secondary small" id="refineBtn" type="button" disabled>AI 경계 다듬기</button>
+              <button class="btn primary small" id="applyEditBtn" type="button">완료</button>
+            </div>
+            <div class="preview-wrap">
+              <div class="edit-stage" id="editStage">
+                <canvas id="editCanvas" class="edit-canvas"></canvas>
+                <div class="brush-cursor" id="brushCursor" hidden></div>
+                <div class="edit-busy" id="editBusy" hidden>
+                  <div class="spinner small" aria-hidden="true"></div>
+                  <span>선택한 영역의 경계를 다듬는 중…</span>
+                </div>
+              </div>
+            </div>
+            <p class="edit-hint">지우개: 남은 배경을 더 지웁니다 · 복원: 잘못 지워진 부분(예: 받침대)을 원본 그대로 되살립니다</p>
+          </div>
+
+          <div class="actions" id="resultActions">
+            <button class="btn primary" id="downloadBtn" type="button">PNG 다운로드</button>
+            <button class="btn secondary" id="editBtn" type="button">이미지 수정</button>
+            <button class="btn secondary" id="resetBtn" type="button">새 이미지</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 오류 -->
+      <section id="state-error" class="state">
+        <div class="card error-card">
+          <div class="err-icon" aria-hidden="true">!</div>
+          <h2 id="errMsg">배경 제거에 실패했습니다.</h2>
+          <button class="btn primary" id="retryBtn" type="button">다시 시도</button>
+        </div>
+      </section>
+
+    </div>
+  </section>
+</main>
+
+<footer>AI 배경 제거 · 이미지가 서버로 전송되지 않습니다</footer>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+
+const els = {
+  fileInput: $('fileInput'),
+  uploadBtn: $('uploadBtn'),
+  dropCard: $('dropCard'),
+  uploadNote: $('uploadNote'),
+  fileHint: $('fileHint'),
+  dlWrap: $('dlWrap'),
+  dlFill: $('dlFill'),
+  dlPct: $('dlPct'),
+  aiWrap: $('aiWrap'),
+  cmpOriginal: $('cmpOriginal'),
+  cmpResult: $('cmpResult'),
+  cmpResultLayer: $('cmpResultLayer'),
+  cmpDivider: $('cmpDivider'),
+  cmpRange: $('cmpRange'),
+  chipRow: $('chipRow'),
+  previewImg: $('previewImg'),
+  previewCanvas: $('previewCanvas'),
+  downloadBtn: $('downloadBtn'),
+  resetBtn: $('resetBtn'),
+  retryBtn: $('retryBtn'),
+  errMsg: $('errMsg'),
+  compareWrap: $('compareWrap'),
+  chipsBox: $('chipsBox'),
+  previewWrap: $('previewWrap'),
+  resultActions: $('resultActions'),
+  editArea: $('editArea'),
+  editStage: $('editStage'),
+  editCanvas: $('editCanvas'),
+  brushCursor: $('brushCursor'),
+  toolErase: $('toolErase'),
+  toolRestore: $('toolRestore'),
+  brushSize: $('brushSize'),
+  brushSizeVal: $('brushSizeVal'),
+  undoBtn: $('undoBtn'),
+  resetEditBtn: $('resetEditBtn'),
+  applyEditBtn: $('applyEditBtn'),
+  editBtn: $('editBtn'),
+  qualityRow: $('qualityRow'),
+  psChip: $('psChip'),
+  aiLabel: $('aiLabel'),
+  refineBtn: $('refineBtn'),
+  editBusy: $('editBusy'),
+  editHint: document.querySelector('.edit-hint'),
+};
+
+let removeBackgroundFn = null;
+async function loadEngine() {
+  if (removeBackgroundFn) return removeBackgroundFn;
+  const mod = await import('./vendor/background-removal.mjs');
+  removeBackgroundFn = mod.removeBackground;
+  return removeBackgroundFn;
+}
+
+let currentFile = null;
+let resultBlob = null;
+let resultImage = null;
+let resultNatural = null;
+let originalURL = null;
+let resultURL = null;
+let activeColor = 'transparent';
+const fetches = new Map();
+let noteTimer = null;
+
+const editCtx = els.editCanvas.getContext('2d');
+let currentTool = 'erase';
+let brush = 40;
+let undoStack = [];
+let hasEdits = false;
+let editing = false;
+let painting = false;
+let lastPt = null;
+let selectedModel = 'isnet_fp16';
+let rmbgSession = null;
+let rmbgOrt = null;
+const RMBG_SIZE = 1024;
+let eraseMask = null;
+let eraseMaskCtx = null;
+let restoreMask = null;
+let restoreMaskCtx = null;
+let editBounds = null;
+let refining = false;
+const EDIT_HINT_TEXT = '지우개: 남은 배경을 더 지웁니다 · 복원: 잘못 지워진 부분(예: 받침대)을 원본 그대로 되살립니다';
+
+function ensureMasks() {
+  if (!eraseMask || eraseMask.width !== els.editCanvas.width || eraseMask.height !== els.editCanvas.height) {
+    eraseMask = document.createElement('canvas');
+    eraseMask.width = els.editCanvas.width;
+    eraseMask.height = els.editCanvas.height;
+    eraseMaskCtx = eraseMask.getContext('2d');
+    restoreMask = document.createElement('canvas');
+    restoreMask.width = els.editCanvas.width;
+    restoreMask.height = els.editCanvas.height;
+    restoreMaskCtx = restoreMask.getContext('2d');
+  }
+}
+
+function recordBounds(p) {
+  const r = brush / 2;
+  if (!editBounds) {
+    editBounds = { x0: p.x - r, y0: p.y - r, x1: p.x + r, y1: p.y + r };
+    return;
+  }
+  editBounds.x0 = Math.min(editBounds.x0, p.x - r);
+  editBounds.y0 = Math.min(editBounds.y0, p.y - r);
+  editBounds.x1 = Math.max(editBounds.x1, p.x + r);
+  editBounds.y1 = Math.max(editBounds.y1, p.y + r);
+}
+
+function clearEditMarks() {
+  if (eraseMask) {
+    eraseMaskCtx.clearRect(0, 0, eraseMask.width, eraseMask.height);
+    restoreMaskCtx.clearRect(0, 0, restoreMask.width, restoreMask.height);
+  }
+  editBounds = null;
+  els.refineBtn.disabled = true;
+}
+
+const SUPPORTED = ['image/png', 'image/jpeg', 'image/webp'];
+
+function setState(name) {
+  for (const s of ['upload', 'processing', 'result', 'error']) {
+    $('state-' + s).classList.toggle('active', s === name);
+  }
+}
+
+function flashNote(text, isError) {
+  els.uploadNote.textContent = text;
+  els.uploadNote.style.color = isError ? '#dc2626' : 'var(--blue)';
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => { els.uploadNote.textContent = ''; }, 3000);
+}
+
+function resetProgress() {
+  fetches.clear();
+  els.dlWrap.hidden = false;
+  els.aiWrap.hidden = true;
+  els.dlFill.style.width = '0%';
+  els.dlPct.textContent = '0%';
+  els.aiLabel.textContent = 'AI가 이미지를 분석하고 있습니다…';
+}
+
+function onProgress(key, current, total) {
+  if (typeof key === 'string' && key.startsWith('fetch')) {
+    els.aiWrap.hidden = true;
+    els.dlWrap.hidden = false;
+    fetches.set(key, { current, total });
+    let done = 0, all = 0;
+    fetches.forEach((f) => { done += f.current || 0; all += f.total || 0; });
+    const pct = all > 0 ? Math.min(100, Math.round((done / all) * 100)) : 0;
+    els.dlFill.style.width = pct + '%';
+    els.dlPct.textContent = pct + '%';
+  } else if (typeof key === 'string' && key.startsWith('compute')) {
+    els.dlWrap.hidden = true;
+    els.aiWrap.hidden = false;
+  }
+}
+
+function psRemoveViaServer(file) {
+  const type = file.type || 'application/octet-stream';
+  return fetch('/api/ps-remove', {
+    method: 'POST',
+    headers: { 'content-type': type },
+    body: file
+  }).then((res) => {
+    if (!res.ok) throw new Error('photoshop failed (' + res.status + ')');
+    return res.blob();
+  });
+}
+
+/* ---------- 초정밀 엔진 (RMBG-1.4, ONNX 직접 구동) ---------- */
+
+async function getRmbgSession() {
+  if (rmbgSession) return rmbgSession;
+  if (!rmbgOrt) {
+    rmbgOrt = (await import('./vendor/ort.mjs')).default;
+    rmbgOrt.env.wasm.wasmPaths = new URL('assets/onnxruntime-web/', location.href).href;
+  }
+  els.aiLabel.textContent = '초정밀 AI 모델을 불러오는 중…';
+  const res = await fetch(new URL('assets/models/rmbg_fp16.onnx', location.href).href);
+  if (!res.ok) throw new Error('model fetch failed');
+  const buf = await res.arrayBuffer();
+  rmbgSession = await rmbgOrt.InferenceSession.create(buf, { executionProviders: ['wasm'] });
+  return rmbgSession;
+}
+
+async function rmbgRemove(file) {
+  const session = await getRmbgSession();
+  const S = RMBG_SIZE;
+
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const w = bitmap.width, h = bitmap.height;
+
+  // 전처리: 1024x1024 리사이즈 + 정규화 (mean 0.5, std 1.0)
+  els.aiLabel.textContent = '초정밀 AI가 이미지를 분석하고 있습니다…';
+  const cIn = document.createElement('canvas');
+  cIn.width = S; cIn.height = S;
+  const ictx = cIn.getContext('2d', { willReadFrequently: true });
+  ictx.drawImage(bitmap, 0, 0, S, S);
+  const px = ictx.getImageData(0, 0, S, S).data;
+  const area = S * S;
+  const tdata = new Float32Array(3 * area);
+  for (let i = 0; i < area; i++) {
+    tdata[i] = px[i * 4] / 255 - 0.5;
+    tdata[area + i] = px[i * 4 + 1] / 255 - 0.5;
+    tdata[area * 2 + i] = px[i * 4 + 2] / 255 - 0.5;
+  }
+
+  const feeds = {};
+  feeds[session.inputNames[0]] = new rmbgOrt.Tensor('float32', tdata, [1, 3, S, S]);
+  const outputs = await session.run(feeds);
+  const mask = outputs[session.outputNames[0]].data;
+
+  // 후처리: min-max 정규화 → 알파 마스크 → 원본 크기 합성
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < mask.length; i++) {
+    const v = mask[i];
+    if (v < mn) mn = v;
+    if (v > mx) mx = v;
+  }
+  const range = (mx - mn) || 1;
+
+  const cMask = document.createElement('canvas');
+  cMask.width = S; cMask.height = S;
+  const mctx = cMask.getContext('2d');
+  const mimg = mctx.createImageData(S, S);
+  for (let i = 0; i < area; i++) {
+    let a = (mask[i] - mn) / range;
+    if (a < 0) a = 0; else if (a > 1) a = 1;
+    mimg.data[i * 4] = 255;
+    mimg.data[i * 4 + 1] = 255;
+    mimg.data[i * 4 + 2] = 255;
+    mimg.data[i * 4 + 3] = (a * 255) | 0;
+  }
+  mctx.putImageData(mimg, 0, 0);
+
+  const cOut = document.createElement('canvas');
+  cOut.width = w; cOut.height = h;
+  const octx = cOut.getContext('2d');
+  octx.drawImage(bitmap, 0, 0);
+  octx.globalCompositeOperation = 'destination-in';
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = 'high';
+  octx.drawImage(cMask, 0, 0, w, h);
+  octx.globalCompositeOperation = 'source-over';
+
+  bitmap.close();
+  return await new Promise((res) => cOut.toBlob(res, 'image/png'));
+}
+
+async function processFile(file) {
+  if (!file) return;
+  currentFile = file;
+  els.fileHint.textContent = file.name;
+  setState('processing');
+  resetProgress();
+
+  // 초정밀 경로 (RMBG-1.4, ONNX 직접 구동)
+  if (selectedModel === 'rmbg') {
+    els.dlWrap.hidden = true;
+    els.aiWrap.hidden = false;
+    try {
+      const blob = await rmbgRemove(file);
+      showResult(blob);
+      return;
+    } catch (err) {
+      console.error(err);
+      showError(false);
+      return;
+    }
+  }
+
+  // Photoshop 고정밀 경로 (실패 시 내장 AI로 자동 폴백)
+  if (selectedModel === 'photoshop') {
+    els.dlWrap.hidden = true;
+    els.aiWrap.hidden = false;
+    els.aiLabel.textContent = 'Photoshop으로 처리하는 중… (최대 2분)';
+    try {
+      const psBlob = await psRemoveViaServer(file);
+      els.aiLabel.textContent = 'Photoshop 처리 완료';
+      showResult(psBlob);
+      return;
+    } catch (err) {
+      els.aiLabel.textContent = 'Photoshop 처리 실패 — 내장 AI(표준)로 대체 처리합니다…';
+      selectedModel = 'isnet_fp16';
+      els.qualityRow.querySelectorAll('.chip').forEach((x) => {
+        x.classList.toggle('active', x.dataset.model === 'isnet_fp16');
+      });
+    }
+  }
+
+  let fn;
+  try {
+    fn = await loadEngine();
+  } catch (err) {
+    showError(true);
+    return;
+  }
+  try {
+    const blob = await fn(file, {
+      model: selectedModel,
+      publicPath: new URL('assets/', location.href).href,
+      progress: onProgress,
+      output: { format: 'image/png', quality: 1 }
+    });
+    showResult(blob);
+  } catch (err) {
+    showError(false);
+  }
+}
+
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function showResult(blob) {
+  fetches.clear();
+  resultBlob = blob;
+  if (originalURL) URL.revokeObjectURL(originalURL);
+  if (resultURL) URL.revokeObjectURL(resultURL);
+  originalURL = URL.createObjectURL(currentFile);
+  resultURL = URL.createObjectURL(blob);
+  resultImage = null;
+  resultNatural = null;
+  els.cmpOriginal.src = originalURL;
+  els.cmpResult.src = resultURL;
+  els.previewImg.src = resultURL;
+  loadImage(resultURL).then((img) => {
+    resultImage = img;
+    resultNatural = { w: img.naturalWidth, h: img.naturalHeight };
+    els.editCanvas.width = resultNatural.w;
+    els.editCanvas.height = resultNatural.h;
+    ensureMasks();
+    clearEditMarks();
+    editCtx.clearRect(0, 0, els.editCanvas.width, els.editCanvas.height);
+    editCtx.drawImage(img, 0, 0);
+    if (activeColor !== 'transparent') drawPreview(activeColor);
+  }).catch(() => {});
+  setActiveChip('transparent');
+  els.cmpRange.value = 50;
+  updateDivider(50);
+  setState('result');
+}
+
+function showError(engineFailure) {
+  els.errMsg.textContent = engineFailure
+    ? '엔진 파일을 불러올 수 없습니다. 폴더 안의 시작하기.bat으로 실행해 주세요.'
+    : '배경 제거에 실패했습니다.';
+  setState('error');
+}
+
+function handleFile(file) {
+  if (!file) return;
+  if (!SUPPORTED.includes(file.type)) {
+    flashNote('PNG, JPG, WEBP 이미지만 지원됩니다.', true);
+    return;
+  }
+  processFile(file);
+}
+
+function updateDivider(p) {
+  els.cmpResultLayer.style.clipPath = 'inset(0 0 0 ' + p + '%)';
+  els.cmpDivider.style.left = p + '%';
+}
+
+function drawPreview(color) {
+  if (!els.editCanvas.width) return;
+  els.previewCanvas.width = els.editCanvas.width;
+  els.previewCanvas.height = els.editCanvas.height;
+  const ctx = els.previewCanvas.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, els.previewCanvas.width, els.previewCanvas.height);
+  ctx.drawImage(els.editCanvas, 0, 0);
+  els.previewImg.hidden = true;
+  els.previewCanvas.hidden = false;
+}
+
+function setActiveChip(color) {
+  activeColor = color;
+  els.chipRow.querySelectorAll('.chip').forEach((b) => {
+    b.classList.toggle('active', b.dataset.color === color);
+  });
+  if (color === 'transparent') {
+    els.previewImg.hidden = false;
+    els.previewCanvas.hidden = true;
+  } else {
+    drawPreview(color);
+  }
+}
+
+async function downloadPng() {
+  try {
+    if (!els.editCanvas.width) {
+      if (!resultBlob) return;
+      downloadBlob(resultBlob);
+      return;
+    }
+    let blob = null;
+    if (activeColor === 'transparent') {
+      blob = await new Promise((r) => els.editCanvas.toBlob(r, 'image/png'));
+    } else {
+      drawPreview(activeColor);
+      blob = await new Promise((r) => els.previewCanvas.toBlob(r, 'image/png'));
+    }
+    if (!blob) return;
+    downloadBlob(blob);
+  } catch (err) {
+    showError(false);
+  }
+}
+
+function downloadBlob(blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'removed-bg.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* ---------- 수정 모드 (지우개 / 복원) ---------- */
+
+function maxUndos() {
+  const area = els.editCanvas.width * els.editCanvas.height;
+  return area > 6e6 ? 3 : 10;
+}
+
+function snapshot() {
+  if (!els.editCanvas.width) return null;
+  const c = document.createElement('canvas');
+  c.width = els.editCanvas.width;
+  c.height = els.editCanvas.height;
+  c.getContext('2d').drawImage(els.editCanvas, 0, 0);
+  return c;
+}
+
+function pushUndo() {
+  const snap = snapshot();
+  if (!snap) return;
+  undoStack.push(snap);
+  if (undoStack.length > maxUndos()) undoStack.shift();
+  updateUndoBtn();
+}
+
+function undo() {
+  const snap = undoStack.pop();
+  if (!snap) return;
+  editCtx.globalCompositeOperation = 'source-over';
+  editCtx.clearRect(0, 0, els.editCanvas.width, els.editCanvas.height);
+  editCtx.drawImage(snap, 0, 0);
+  updateUndoBtn();
+  refreshAfterEdit();
+}
+
+function updateUndoBtn() {
+  els.undoBtn.disabled = undoStack.length === 0;
+}
+
+function refreshAfterEdit() {
+  if (activeColor !== 'transparent') drawPreview(activeColor);
+}
+
+let restoreTemp = null;
+let restoreTempCtx = null;
+
+function ensureRestoreTemp() {
+  if (!restoreTemp || restoreTemp.width !== els.editCanvas.width || restoreTemp.height !== els.editCanvas.height) {
+    restoreTemp = document.createElement('canvas');
+    restoreTemp.width = els.editCanvas.width;
+    restoreTemp.height = els.editCanvas.height;
+    restoreTempCtx = restoreTemp.getContext('2d');
+  }
+}
+
+function strokeSegment(x0, y0, x1, y1) {
+  ensureMasks();
+  editCtx.save();
+  editCtx.beginPath();
+  editCtx.moveTo(x0, y0);
+  editCtx.lineTo(x1, y1);
+  editCtx.lineWidth = brush;
+  editCtx.lineCap = 'round';
+  editCtx.lineJoin = 'round';
+  const maskCtx = currentTool === 'erase' ? eraseMaskCtx : restoreMaskCtx;
+  maskCtx.lineWidth = brush;
+  maskCtx.lineCap = 'round';
+  maskCtx.lineJoin = 'round';
+  maskCtx.strokeStyle = '#000';
+  maskCtx.beginPath();
+  maskCtx.moveTo(x0, y0);
+  maskCtx.lineTo(x1, y1);
+  maskCtx.stroke();
+  if (currentTool === 'erase') {
+    editCtx.globalCompositeOperation = 'destination-out';
+    editCtx.strokeStyle = 'rgba(0,0,0,1)';
+    editCtx.stroke();
+    editCtx.restore();
+    return;
+  }
+  editCtx.restore();
+  // 복원: "선 마스크 ∩ 원본 이미지"를 만들어 현재 상태 위에 얹는다.
+  // (직선 경로는 채움 면적이 0이라 clip()으로는 그릴 수 없다)
+  ensureRestoreTemp();
+  restoreTempCtx.clearRect(0, 0, restoreTemp.width, restoreTemp.height);
+  restoreTempCtx.globalCompositeOperation = 'source-over';
+  restoreTempCtx.lineWidth = brush;
+  restoreTempCtx.lineCap = 'round';
+  restoreTempCtx.lineJoin = 'round';
+  restoreTempCtx.strokeStyle = '#000';
+  restoreTempCtx.beginPath();
+  restoreTempCtx.moveTo(x0, y0);
+  restoreTempCtx.lineTo(x1, y1);
+  restoreTempCtx.stroke();
+  restoreTempCtx.globalCompositeOperation = 'source-in';
+  restoreTempCtx.drawImage(els.cmpOriginal, 0, 0);
+  restoreTempCtx.globalCompositeOperation = 'source-over';
+  editCtx.drawImage(restoreTemp, 0, 0);
+}
+
+function canvasPoint(e) {
+  const r = els.editCanvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (els.editCanvas.width / r.width),
+    y: (e.clientY - r.top) * (els.editCanvas.height / r.height),
+  };
+}
+
+function setTool(tool) {
+  currentTool = tool;
+  els.toolErase.classList.toggle('active', tool === 'erase');
+  els.toolRestore.classList.toggle('active', tool === 'restore');
+}
+
+function enterEdit() {
+  if (!els.editCanvas.width) return;
+  editing = true;
+  els.compareWrap.hidden = true;
+  els.chipsBox.hidden = true;
+  els.previewWrap.hidden = true;
+  els.resultActions.hidden = true;
+  els.editArea.hidden = false;
+  setTool(currentTool);
+  els.refineBtn.disabled = !editBounds;
+}
+
+async function applyEdits() {
+  if (!hasEdits) return;
+  const blob = await new Promise((r) => els.editCanvas.toBlob(r, 'image/png'));
+  if (!blob) return;
+  resultBlob = blob;
+  if (resultURL) URL.revokeObjectURL(resultURL);
+  resultURL = URL.createObjectURL(blob);
+  els.cmpResult.src = resultURL;
+  els.previewImg.src = resultURL;
+  hasEdits = false;
+  undoStack = [];
+  updateUndoBtn();
+  if (activeColor !== 'transparent') drawPreview(activeColor);
+}
+
+async function exitEdit() {
+  await applyEdits();
+  editing = false;
+  painting = false;
+  els.brushCursor.hidden = true;
+  els.editArea.hidden = true;
+  els.compareWrap.hidden = false;
+  els.chipsBox.hidden = false;
+  els.previewWrap.hidden = false;
+  els.resultActions.hidden = false;
+}
+
+function updateBrushCursor(e) {
+  if (e.pointerType && e.pointerType !== 'mouse') return;
+  const r = els.editCanvas.getBoundingClientRect();
+  const scale = r.width / els.editCanvas.width;
+  const d = Math.max(6, brush * scale);
+  els.brushCursor.style.width = d + 'px';
+  els.brushCursor.style.height = d + 'px';
+  els.brushCursor.style.left = (e.clientX - r.left) + 'px';
+  els.brushCursor.style.top = (e.clientY - r.top) + 'px';
+  els.brushCursor.hidden = false;
+}
+
+els.editCanvas.addEventListener('pointerdown', (e) => {
+  if (!editing || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  e.preventDefault();
+  els.editCanvas.setPointerCapture(e.pointerId);
+  painting = true;
+  pushUndo();
+  const p = canvasPoint(e);
+  recordBounds(p);
+  strokeSegment(p.x, p.y, p.x + 0.01, p.y + 0.01);
+  lastPt = p;
+  hasEdits = true;
+});
+
+els.editCanvas.addEventListener('pointermove', (e) => {
+  if (editing) updateBrushCursor(e);
+  if (!painting) return;
+  const p = canvasPoint(e);
+  recordBounds(p);
+  strokeSegment(lastPt.x, lastPt.y, p.x, p.y);
+  lastPt = p;
+});
+
+function endStroke() {
+  if (!painting) return;
+  painting = false;
+  lastPt = null;
+  els.refineBtn.disabled = !editBounds;
+  refreshAfterEdit();
+}
+els.editCanvas.addEventListener('pointerup', endStroke);
+els.editCanvas.addEventListener('pointercancel', endStroke);
+els.editCanvas.addEventListener('pointerleave', () => { els.brushCursor.hidden = true; });
+
+els.toolErase.addEventListener('click', () => setTool('erase'));
+els.toolRestore.addEventListener('click', () => setTool('restore'));
+
+els.brushSize.addEventListener('input', () => {
+  brush = Number(els.brushSize.value);
+  els.brushSizeVal.textContent = els.brushSize.value;
+});
+
+els.undoBtn.addEventListener('click', undo);
+
+els.resetEditBtn.addEventListener('click', () => {
+  if (!resultImage) return;
+  pushUndo();
+  editCtx.globalCompositeOperation = 'source-over';
+  editCtx.clearRect(0, 0, els.editCanvas.width, els.editCanvas.height);
+  editCtx.drawImage(resultImage, 0, 0);
+  clearEditMarks();
+  refreshAfterEdit();
+});
+
+els.applyEditBtn.addEventListener('click', exitEdit);
+els.editBtn.addEventListener('click', enterEdit);
+
+/* ---------- AI 경계 다듬기 ---------- */
+
+function setEditBusy(on) {
+  els.editBusy.hidden = !on;
+  els.refineBtn.disabled = on || !editBounds;
+  els.undoBtn.disabled = on || undoStack.length === 0;
+  els.resetEditBtn.disabled = on;
+  els.applyEditBtn.disabled = on;
+}
+
+function flashHintError() {
+  els.editHint.textContent = '경계 다듬기에 실패했습니다. 다시 시도해 주세요.';
+  els.editHint.classList.add('error');
+  setTimeout(() => {
+    els.editHint.classList.remove('error');
+    els.editHint.textContent = EDIT_HINT_TEXT;
+  }, 4000);
+}
+
+function tempCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
+}
+
+function cropInto(src, cx, cy, cw, ch) {
+  const c = tempCanvas(cw, ch);
+  c.getContext('2d').drawImage(src, cx, cy, cw, ch, 0, 0, cw, ch);
+  return c;
+}
+
+function computeCropRect() {
+  const W = els.editCanvas.width;
+  const H = els.editCanvas.height;
+  const bw = editBounds.x1 - editBounds.x0;
+  const bh = editBounds.y1 - editBounds.y0;
+  const pad = Math.round(Math.max(48, Math.max(bw, bh) * 0.25));
+  const x0 = Math.max(0, Math.floor(editBounds.x0 - pad));
+  const y0 = Math.max(0, Math.floor(editBounds.y0 - pad));
+  const x1 = Math.min(W, Math.ceil(editBounds.x1 + pad));
+  const y1 = Math.min(H, Math.ceil(editBounds.y1 + pad));
+  return { cx: x0, cy: y0, cw: x1 - x0, ch: y1 - y0 };
+}
+
+async function canvasToBlob(canvas) {
+  return new Promise((r) => canvas.toBlob(r, 'image/png'));
+}
+
+async function refineEdges() {
+  if (refining || !editBounds || !els.editCanvas.width) return;
+  refining = true;
+  setEditBusy(true);
+  try {
+    const { cx, cy, cw, ch } = computeCropRect();
+
+    // 1) 원본 이미지의 편집 영역(여백 포함)을 잘라 AI 재추론
+    const cropCanvas = tempCanvas(cw, ch);
+    cropCanvas.getContext('2d').drawImage(els.cmpOriginal, cx, cy, cw, ch, 0, 0, cw, ch);
+    const cropBlob = await canvasToBlob(cropCanvas);
+    const fn = await loadEngine();
+    const refinedBlob = await fn(cropBlob, {
+      model: selectedModel,
+      publicPath: new URL('assets/', location.href).href,
+      output: { format: 'image/png', quality: 1 }
+    });
+    const refinedUrl = URL.createObjectURL(refinedBlob);
+    const aiImg = await loadImage(refinedUrl);
+    URL.revokeObjectURL(refinedUrl);
+
+    // 2) 되돌리기 가능하도록 현재 상태 스냅샷
+    pushUndo();
+
+    // 3) AI 결과를 크롭 영역에 얹기
+    editCtx.globalCompositeOperation = 'source-over';
+    editCtx.drawImage(aiImg, cx, cy);
+
+    // 4) 사용자가 지운 곳은 다시 투명으로 잠금
+    const erasedCrop = cropInto(eraseMask, cx, cy, cw, ch);
+    editCtx.save();
+    editCtx.globalCompositeOperation = 'destination-out';
+    editCtx.drawImage(erasedCrop, cx, cy);
+    editCtx.restore();
+
+    // 5) 사용자가 복원한 곳은 원본 픽셀로 다시 잠금
+    const restoredCrop = cropInto(restoreMask, cx, cy, cw, ch);
+    const patch = tempCanvas(cw, ch);
+    const pctx = patch.getContext('2d');
+    pctx.drawImage(restoredCrop, 0, 0);
+    pctx.globalCompositeOperation = 'source-in';
+    pctx.drawImage(els.cmpOriginal, cx, cy, cw, ch, 0, 0, cw, ch);
+    editCtx.drawImage(patch, cx, cy);
+
+    hasEdits = true;
+    refreshAfterEdit();
+  } catch (err) {
+    flashHintError();
+  }
+  refining = false;
+  setEditBusy(false);
+}
+
+els.refineBtn.addEventListener('click', refineEdges);
+
+els.qualityRow.addEventListener('click', (e) => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  selectedModel = b.dataset.model;
+  els.qualityRow.querySelectorAll('.chip').forEach((x) => x.classList.toggle('active', x === b));
+});
+
+function resetAll() {
+  if (originalURL) URL.revokeObjectURL(originalURL);
+  if (resultURL) URL.revokeObjectURL(resultURL);
+  originalURL = null;
+  resultURL = null;
+  currentFile = null;
+  resultBlob = null;
+  resultImage = null;
+  resultNatural = null;
+  undoStack = [];
+  hasEdits = false;
+  editing = false;
+  painting = false;
+  els.editArea.hidden = true;
+  els.fileInput.value = '';
+  setState('upload');
+}
+
+els.uploadBtn.addEventListener('click', () => els.fileInput.click());
+els.fileInput.addEventListener('change', () => {
+  const f = els.fileInput.files && els.fileInput.files[0];
+  handleFile(f);
+});
+
+els.dropCard.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  els.dropCard.classList.add('dragover');
+});
+els.dropCard.addEventListener('dragleave', () => els.dropCard.classList.remove('dragover'));
+els.dropCard.addEventListener('drop', (e) => {
+  e.preventDefault();
+  els.dropCard.classList.remove('dragover');
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  handleFile(f);
+});
+
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => e.preventDefault());
+
+window.addEventListener('paste', (e) => {
+  const state = document.querySelector('.state.active');
+  if (!state || state.id === 'state-processing' || state.id === 'state-result') return;
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      const f = item.getAsFile();
+      if (f) handleFile(f);
+      break;
+    }
+  }
+});
+
+els.cmpRange.addEventListener('input', () => updateDivider(Number(els.cmpRange.value)));
+
+els.chipRow.addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip');
+  if (chip) setActiveChip(chip.dataset.color);
+});
+
+els.downloadBtn.addEventListener('click', downloadPng);
+els.resetBtn.addEventListener('click', resetAll);
+els.retryBtn.addEventListener('click', () => processFile(currentFile));
+
+if (location.protocol === 'file:') {
+  setState('error');
+  els.retryBtn.hidden = true;
+  els.errMsg.textContent = '이 버전은 로컬 서버 실행이 필요합니다. 폴더 안의 시작하기.bat을 실행해 주세요.';
+} else {
+  // Photoshop 설치·watcher 확인 → PS 고정밀 칩 표시
+  fetch('/api/ps-status').then((r) => r.json()).then((s) => {
+    if (s && s.available) els.psChip.hidden = false;
+  }).catch(() => {});
+}
+
+updateDivider(50);
+</script>
+
+</body>
+</html>
